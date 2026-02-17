@@ -1,0 +1,69 @@
+
+# ==========================================
+# MediSimplify - GitIgnore File
+# Prevents sensitive data from being committed
+# ==========================================
+
+# === CRITICAL: API Keys & Secrets ===
+.env
+*.env
+!.env.example
+*.key
+secrets.json
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# === Virtual Environment ===
+venv/
+env/
+ENV/
+virtualenv/
+
+# === Data & Generated Files ===
+data/audio/*.mp3
+data/drug_cache.json
+collected_data/
+*.mp3
+*.wav
+
+# === IDEs ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# === Logs ===
+*.log
+logs/
+
+# === OS Files ===
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# === Temporary Files ===
+*.tmp
+*.temp
+~*
