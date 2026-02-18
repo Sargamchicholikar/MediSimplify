@@ -45,7 +45,10 @@ data/drug_cache.json
 collected_data/
 *.mp3
 *.wav
-
+# === Data Folders (IMPORTANT!) ===
+backend/data/
+data/
+collected_data/
 # === IDEs ===
 .vscode/
 .idea/

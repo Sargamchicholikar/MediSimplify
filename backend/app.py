@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor
 import time
-
+from data_collector import data_collector
 from drug_database import DRUG_COMBINATIONS, ABBREVIATIONS
 from drug_service import drug_service
 from lab_database import LAB_TESTS
@@ -189,6 +189,14 @@ async def upload_prescription(file: UploadFile = File(...)):
         contents = await file.read()
         result = ocr_engine.process_prescription(contents)
         
+        # SAVE TO DATASET (NEW!)
+        data_collector.save_prescription(
+            image_bytes=contents,
+            extracted_drugs=result["found_drugs"],
+            analysis_result={"drugs": result["found_drugs"]},
+            language="English"
+        )
+        
         return JSONResponse(content={
             "success": True,
             "found_drugs": result["found_drugs"],
@@ -203,23 +211,29 @@ async def upload_lab_report(
     file: UploadFile = File(...),
     language: str = Query("English")
 ):
-    """Upload lab with language"""
+    """Upload lab with data collection"""
     
     try:
         contents = await file.read()
         is_pdf = file.content_type == "application/pdf"
         
-        print(f"\n📄 Lab report: {file.filename} (Language: {language})")
+        print(f"\n📄 Lab: {file.filename} (Lang: {language})")
         
         result = lab_parser.process_lab_report(contents, is_pdf)
         extracted_text = result["extracted_text"]
         
-        print(f"📄 Extracted {len(extracted_text)} chars")
-        
-        # AI in selected language
         ai_analyses = ai_lab_analyzer.analyze_full_report_text(extracted_text, language=language)
         
-        print(f"✅ Analyzed {len(ai_analyses)} tests in {language}\n")
+        # SAVE TO DATASET (NEW!)
+        data_collector.save_lab_report(
+            file_bytes=contents,
+            file_type="pdf" if is_pdf else "image",
+            extracted_tests=ai_analyses,
+            ai_analysis=ai_analyses,
+            language=language
+        )
+        
+        print(f"✅ Analyzed {len(ai_analyses)} tests\n")
         
         return JSONResponse(content={
             "success": True,
@@ -230,7 +244,6 @@ async def upload_lab_report(
     except Exception as e:
         print(f"❌ Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/analyze-complete")
 async def analyze_complete(
@@ -300,16 +313,21 @@ async def upload_xray(
     file: UploadFile = File(...),
     language: str = Query("English")
 ):
-    """Upload X-ray IMAGE - Vision AI analyzes it!"""
+    """Upload X-ray with data collection"""
     
     try:
         contents = await file.read()
         
-        print(f"\n🔬 Analyzing X-ray IMAGE: {file.filename}")
-        print(f"🌐 Language: {language}")
+        print(f"\n🔬 X-ray: {file.filename} (Lang: {language})")
         
-        # Vision AI analyzes actual image!
         xray_analysis = advanced_xray_analyzer.analyze_xray_detailed(contents, language)
+        
+        # SAVE TO DATASET (NEW!)
+        data_collector.save_xray(
+            image_bytes=contents,
+            ai_analysis=xray_analysis,
+            language=language
+        )
         
         print(f"✅ X-ray analyzed\n")
         
@@ -320,8 +338,6 @@ async def upload_xray(
     
     except Exception as e:
         print(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     
 @app.post("/generate-audio")
@@ -350,6 +366,20 @@ async def generate_audio(text: str, language: str = "English"):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))   
+
+@app.get("/dataset-stats")
+def get_dataset_stats():
+    """Get collected dataset statistics"""
+    stats = data_collector.get_statistics()
+    return JSONResponse(content=stats, status_code=200)
+
+
+@app.get("/export-dataset-summary")
+def export_dataset_summary():
+    """Generate dataset summary report"""
+    summary = data_collector.export_dataset_summary()
+    return JSONResponse(content={"summary": summary}, status_code=200)
+
 
 @app.get("/about", response_class=HTMLResponse)
 async def about_page():
