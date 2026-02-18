@@ -1,0 +1,152 @@
+{
+  "doxylamine": {
+    "name": "Doxylamine",
+    "category": "Prescription Medication",
+    "treats": "Use helps to reduce difficulty in falling asleep",
+    "simple_explanation": "Prescription medication - consult your doctor",
+    "common_dosage": "As prescribed by doctor",
+    "frequency": "Once daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "Warnings do not use in children under 12 years of age with any other product containing doxylamine unless you have time for a full night’s sleep ask a doctor before use if you have a breathing problem",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-07T23:51:45.293409"
+  },
+  "pyridoxine": {
+    "name": "Pyridoxine",
+    "category": "Vitamin C",
+    "treats": "Indications: pnv-dha is a multivitamin/multimineral nutritional supplement used to treat use in the dietary management of people with nutritional deficiencies or are in need of nutritional supplementa",
+    "simple_explanation": "Description: pnv-dha is a prescription prenatal/postnatal multivitamin/mineral/essential fatty acid softgel",
+    "common_dosage": "As prescribed by doctor",
+    "frequency": "As directed by your doctor",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "Warning: ingestion of more than 3 grams of omega-3 fatty acids (such as dha) per day has been shown to have potential antithrombotic effects, including an increased bleeding time and international nor",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-07T23:51:45.296434"
+  },
+  "amlodipine": {
+    "name": "Amlodipine",
+    "category": "Prescription Medication",
+    "treats": "1 indications and usage amlodipine besylate tablets are calcium channel blocker and may be used alone or in combination with other antihypertensive and antianginal agents for the treatment of: •high b",
+    "simple_explanation": "12",
+    "common_dosage": "5 mg",
+    "frequency": "Once daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "5 warnings and precautions symptomatic hypotension is possible, particularly in people with severe aortic stenosis",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-07T23:54:56.209483"
+  },
+  "metformin": {
+    "name": "Metformin",
+    "category": "Dipeptidyl Peptidase 4 Inhibitor",
+    "treats": "1 indications and usage zituvimet is a combination of sitagliptin, a dipeptidyl peptidase-4 (dpp-4) inhibitor, and metformin hydrochloride (hcl), a biguanide, indicated as an adjunct to diet and exerc",
+    "simple_explanation": "12",
+    "common_dosage": "100 mg",
+    "frequency": "Twice daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "5 warnings and precautions lactic acidosis: see boxed warning",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-07T23:54:56.824518"
+  },
+  "pantoprazole": {
+    "name": "Pantoprazole",
+    "category": "Prescription Medication",
+    "treats": "1 indications and usage pantoprazole sodium for injection is used to treat treatment of: gastroesophageal reflux disease (gerd) and a history of erosive esophagitis (ee) for up to 10 days in adults",
+    "simple_explanation": "12",
+    "common_dosage": "40 mg",
+    "frequency": "Once daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "5 warnings and precautions gastric malignancy : in adults, symptomatic response to therapy with pantoprazole sodium does not preclude the presence of gastric malignancy",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-07T23:54:57.234466"
+  },
+  "codeine": {
+    "name": "Codeine",
+    "category": "Prescription Medication",
+    "treats": "Indications and usage acetaminophen and codeine phosphate tablets are used to treat the management of mild to moderate pain, where treatment with an opioid is appropriate and for which alternative tre",
+    "simple_explanation": "Clinical pharmacology mechanism of action codeine is an opioid agonist relatively selective for the mu-opioid receptor, but with a much weaker affinity than morphine",
+    "common_dosage": "60 mg",
+    "frequency": "Twice daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "Warnings addiction, abuse, and misuse acetaminophen and codeine phosphate tablets contain codeine",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-08T00:04:20.737112"
+  },
+  "sulfate": {
+    "name": "Sulfate",
+    "category": "Prescription Medication",
+    "treats": "Indications and usage amphetamine sulfate tablets are used to treat: narcolepsy attention deficit disorder with hyperactivity as an integral part of a total treatment program which typically includes ",
+    "simple_explanation": "Clinical pharmacology amphetamines are non-catecholamine, sympathomimetic amines with cns stimulant activity",
+    "common_dosage": "5 mg",
+    "frequency": "Twice daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "Warnings abuse, misuse, and addiction amphetamine sulfate tablets have a high potential for abuse and misuse",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-08T00:04:20.836845"
+  },
+  "morphine": {
+    "name": "Morphine",
+    "category": "Prescription Medication",
+    "treats": "1 indications and usage morphine sulfate tablets are used to treat the management of: adult and pediatric people weighing at least 50 kg and above with acute pain severe enough to require an opioid an",
+    "simple_explanation": "12",
+    "common_dosage": "30 mg",
+    "frequency": "Twice daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "5 warnings and precautions opioid-induced hyperalgesia and allodynia: opioid-induced hyperalgesia (oih) occurs when an opioid analgesic paradoxically causes an increase in pain, or an increase in sens",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-08T00:04:20.858422"
+  },
+  "oxycodone": {
+    "name": "Oxycodone",
+    "category": "Prescription Medication",
+    "treats": "1 indications and usage oxycodone hydrochloride tablets are used to treat the management of pain severe enough to require an opioid analgesic and for which alternative treatments are inadequate",
+    "simple_explanation": "12 clinical pharmacology 12",
+    "common_dosage": "15 mg",
+    "frequency": "Twice daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "5 warnings and precautions opioid-induced hyperalgesia and allodynia : opioid-induced hyperalgesia (oih) occurs when opioid analgesic paradoxically causes an increase in pain, or an increase in sensit",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-08T00:04:20.875027"
+  },
+  "atorvastatin": {
+    "name": "Atorvastatin",
+    "category": "Prescription Medication",
+    "treats": "1 indications and usage atorvastatin calcium tablets are indicated: to reduce the risk of: heart attack (mi), stroke, revascularization procedures, and angina in adults with multiple risk factors for ",
+    "simple_explanation": "12",
+    "common_dosage": "20 mg",
+    "frequency": "Once daily",
+    "side_effects": [
+      "See package information"
+    ],
+    "warnings": "5 warnings and precautions myopathy and rhabdomyolysis: risk factors include age 65 years or greater, uncontrolled hypothyroidism, renal impairment, together with use with certain other drugs, and hig",
+    "source": "FDA Database",
+    "confidence": "high",
+    "cached_at": "2026-02-08T23:43:58.669516"
+  }
+}
