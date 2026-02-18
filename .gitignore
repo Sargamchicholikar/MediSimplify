@@ -65,8 +65,11 @@ logs/
 Thumbs.db
 .DS_Store
 desktop.ini
-
+# === Files to Keep Private ===
+backend/data_collector.py
+frontend/about.html
 # === Temporary Files ===
 *.tmp
 *.temp
+
 ~*
