@@ -13,29 +13,28 @@ This file is part of the AI Medical Report Simplifier project.
 For full license information, see LICENSE file in project root.
 """
 
-
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from pydantic import BaseModel
 from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor
 import time
+import os
+
 from data_collector import data_collector
+from analytics_tracker import analytics_tracker  # NEW!
 from drug_database import DRUG_COMBINATIONS, ABBREVIATIONS
 from drug_service import drug_service
 from lab_database import LAB_TESTS
 from ocr_module import PrescriptionOCR, LabReportParser
 from ai_lab_analyzer import ai_lab_analyzer
-from drug_translator import drug_translator  # NEW!
+from drug_translator import drug_translator
 from advanced_xray_vision import advanced_xray_analyzer
 from voice_generator import voice_generator
-from fastapi.responses import FileResponse
-from fastapi.responses import FileResponse, HTMLResponse
-import os
 
 
-app = FastAPI(title="Medical Simplifier API")
+app = FastAPI(title="MediSimplify API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,13 +47,14 @@ app.add_middleware(
 )
 
 print("\n" + "="*60)
-print("Initializing system...")
+print("Initializing MediSimplify...")
 print("="*60)
 ocr_engine = PrescriptionOCR()
 lab_parser = LabReportParser()
 print("✅ All systems ready!\n")
 
-# Models
+
+# Pydantic Models
 class DrugQuery(BaseModel):
     drug_names: List[str]
     language: Optional[str] = "English"
@@ -67,31 +67,43 @@ class LabQuery(BaseModel):
     results: List[LabResult]
     language: Optional[str] = "English"
 
-class DrugInfo(BaseModel):
-    name: str
-    treats: str
-    explanation: str
-    dosage: str
-    frequency: str
-    warnings: str
-
-class ConditionInfo(BaseModel):
-    condition: str
-    explanation: str
-
 
 def validate_drug_sync(drug_name):
+    """Helper function for parallel drug validation"""
     return drug_service.get_drug_info(drug_name)
 
 
-@app.get("/")
-def root():
-    return {"message": "Medical Simplifier API - Multi-language support!"}
+# ==================== FRONTEND ROUTES ====================
 
+@app.get("/", response_class=FileResponse)
+async def serve_frontend():
+    """Serve main application page"""
+    index_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
+    
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        return HTMLResponse("<h1>MediSimplify</h1><p>Frontend not found</p>")
+
+
+@app.get("/about", response_class=HTMLResponse)
+async def about_page():
+    """Serve about page (local only)"""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    about_path = os.path.join(base_dir, "..", "frontend", "about.html")
+    
+    try:
+        with open(about_path, 'r', encoding='utf-8') as f:
+            return HTMLResponse(content=f.read())
+    except FileNotFoundError:
+        return HTMLResponse("<h1>About</h1><p>Available in local version only</p>")
+
+
+# ==================== DRUG ANALYSIS ====================
 
 @app.post("/analyze-drugs")
 def analyze_drugs(query: DrugQuery):
-    """Analyze drugs with language support"""
+    """Analyze manually entered drugs with tracking"""
     
     language = query.language or "English"
     
@@ -101,6 +113,7 @@ def analyze_drugs(query: DrugQuery):
     drugs_info = []
     validated_drugs = []
     
+    # Parallel validation
     with ThreadPoolExecutor(max_workers=5) as executor:
         future_to_drug = {
             executor.submit(validate_drug_sync, drug_name): drug_name 
@@ -128,11 +141,12 @@ def analyze_drugs(query: DrugQuery):
             except Exception as e:
                 print(f"❌ {drug_name}: {e}")
     
-    # Translate if not English
+    # Translate if needed
     if language != "English":
-        print(f"🌐 Translating drugs to {language}...")
+        print(f"🌐 Translating to {language}...")
         drugs_info = drug_translator.translate_multiple_drugs(drugs_info, language)
     
+    # Detect conditions
     detected_conditions = []
     drug_set = frozenset(validated_drugs)
     
@@ -143,45 +157,24 @@ def analyze_drugs(query: DrugQuery):
                 "explanation": info["explanation"]
             })
     
+    # TRACK USAGE (NEW!)
+    analytics_tracker.track_prescription_analysis(
+        language=language,
+        is_upload=False  # Manual typing
+    )
+    
     return JSONResponse(content={
         "drugs": drugs_info,
         "detected_conditions": detected_conditions
     }, status_code=200)
 
 
-@app.post("/analyze-labs")
-def analyze_labs(query: LabQuery):
-    """Analyze labs"""
-    
-    language = query.language or "English"
-    
-    print(f"\n🧪 Analyzing {len(query.results)} tests in {language}...")
-    
-    test_results = [
-        {"test_name": r.test_name, "value": r.value, "unit": ""}
-        for r in query.results
-    ]
-    
-    analyses = ai_lab_analyzer.analyze_full_report(test_results, language=language)
-    
-    return JSONResponse(content={"lab_analysis": analyses}, status_code=200)
-
-
-@app.get("/drug/{drug_name}")
-def get_drug_info(drug_name: str):
-    drug_info = drug_service.get_drug_info(drug_name)
-    if drug_info["confidence"] == "none":
-        raise HTTPException(status_code=404, detail="Not found")
-    return JSONResponse(content=drug_info, status_code=200)
-
-
-@app.get("/database-stats")
-def get_database_stats():
-    return JSONResponse(content=drug_service.get_stats(), status_code=200)
-
+# ==================== PRESCRIPTION UPLOAD ====================
 
 @app.post("/upload-prescription")
 async def upload_prescription(file: UploadFile = File(...)):
+    """Upload prescription image with tracking"""
+    
     if not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="Images only")
     
@@ -189,12 +182,17 @@ async def upload_prescription(file: UploadFile = File(...)):
         contents = await file.read()
         result = ocr_engine.process_prescription(contents)
         
-        # SAVE TO DATASET (NEW!)
+        # Save to dataset
         data_collector.save_prescription(
             image_bytes=contents,
             extracted_drugs=result["found_drugs"],
-            analysis_result={"drugs": result["found_drugs"]},
             language="English"
+        )
+        
+        # TRACK USAGE (NEW!)
+        analytics_tracker.track_prescription_analysis(
+            language="English",
+            is_upload=True  # Image upload
         )
         
         return JSONResponse(content={
@@ -202,16 +200,19 @@ async def upload_prescription(file: UploadFile = File(...)):
             "found_drugs": result["found_drugs"],
             "drug_count": len(result["found_drugs"])
         }, status_code=200)
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ==================== LAB REPORT UPLOAD ====================
 
 @app.post("/upload-lab-report")
 async def upload_lab_report(
     file: UploadFile = File(...),
     language: str = Query("English")
 ):
-    """Upload lab with data collection"""
+    """Upload lab report with tracking"""
     
     try:
         contents = await file.read()
@@ -219,19 +220,21 @@ async def upload_lab_report(
         
         print(f"\n📄 Lab: {file.filename} (Lang: {language})")
         
+        # Parse and analyze
         result = lab_parser.process_lab_report(contents, is_pdf)
         extracted_text = result["extracted_text"]
-        
         ai_analyses = ai_lab_analyzer.analyze_full_report_text(extracted_text, language=language)
         
-        # SAVE TO DATASET (NEW!)
+        # Save to dataset
         data_collector.save_lab_report(
             file_bytes=contents,
-            file_type="pdf" if is_pdf else "image",
-            extracted_tests=ai_analyses,
+            filename=file.filename,
             ai_analysis=ai_analyses,
             language=language
         )
+        
+        # TRACK USAGE (NEW!)
+        analytics_tracker.track_lab_analysis(language=language)
         
         print(f"✅ Analyzed {len(ai_analyses)} tests\n")
         
@@ -240,10 +243,54 @@ async def upload_lab_report(
             "test_count": len(ai_analyses),
             "ai_analysis": ai_analyses
         }, status_code=200)
-    
+        
     except Exception as e:
         print(f"❌ Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== X-RAY UPLOAD ====================
+
+@app.post("/upload-xray")
+async def upload_xray(
+    file: UploadFile = File(...),
+    language: str = Query("English")
+):
+    """Upload X-ray with tracking"""
+    
+    try:
+        contents = await file.read()
+        
+        print(f"\n🔬 X-ray: {file.filename} (Lang: {language})")
+        
+        # AI analysis
+        xray_analysis = advanced_xray_analyzer.analyze_xray_detailed(contents, language)
+        
+        # Save to dataset
+        data_collector.save_xray(
+            image_bytes=contents,
+            ai_analysis=xray_analysis,
+            language=language
+        )
+        
+        # TRACK USAGE (NEW!)
+        analytics_tracker.track_xray_analysis(language=language)
+        
+        print(f"✅ X-ray analyzed\n")
+        
+        return JSONResponse(content={
+            "success": True,
+            "xray_analysis": xray_analysis
+        }, status_code=200)
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== COMBINED ANALYSIS ====================
 
 @app.post("/analyze-complete")
 async def analyze_complete(
@@ -251,11 +298,10 @@ async def analyze_complete(
     lab_report: UploadFile = File(None),
     language: str = Query("English")
 ):
-    """Complete analysis with language"""
+    """Complete analysis (no duplicate data saving)"""
     
-    print(f"\n🌐 Language: {language}")
+    print(f"\n🌐 Combined analysis in {language}")
     
-    drug_candidates = []
     drugs_info = []
     lab_analysis = []
     
@@ -265,7 +311,6 @@ async def analyze_complete(
         pres_result = ocr_engine.process_prescription(pres_contents)
         drug_candidates = pres_result["found_drugs"]
         
-        # Validate drugs
         with ThreadPoolExecutor(max_workers=5) as executor:
             futures = {executor.submit(validate_drug_sync, d): d for d in drug_candidates}
             
@@ -285,7 +330,6 @@ async def analyze_complete(
                 except:
                     pass
         
-        # Translate drugs
         if language != "English":
             drugs_info = drug_translator.translate_multiple_drugs(drugs_info, language)
     
@@ -296,8 +340,6 @@ async def analyze_complete(
         
         lab_result = lab_parser.process_lab_report(lab_contents, is_pdf)
         extracted_text = lab_result["extracted_text"]
-        
-        # AI in selected language
         lab_analysis = ai_lab_analyzer.analyze_full_report_text(extracted_text, language=language)
     
     detected_conditions = []
@@ -308,64 +350,56 @@ async def analyze_complete(
         "lab_analysis": lab_analysis
     }, status_code=200)
 
-@app.post("/upload-xray")
-async def upload_xray(
-    file: UploadFile = File(...),
-    language: str = Query("English")
-):
-    """Upload X-ray with data collection"""
-    
-    try:
-        contents = await file.read()
-        
-        print(f"\n🔬 X-ray: {file.filename} (Lang: {language})")
-        
-        xray_analysis = advanced_xray_analyzer.analyze_xray_detailed(contents, language)
-        
-        # SAVE TO DATASET (NEW!)
-        data_collector.save_xray(
-            image_bytes=contents,
-            ai_analysis=xray_analysis,
-            language=language
-        )
-        
-        print(f"✅ X-ray analyzed\n")
-        
-        return JSONResponse(content={
-            "success": True,
-            "xray_analysis": xray_analysis
-        }, status_code=200)
-    
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    
+
+# ==================== VOICE GENERATION ====================
+
 @app.post("/generate-audio")
 async def generate_audio(text: str, language: str = "English"):
-    """Generate audio from text"""
+    """Generate audio with tracking"""
     
     try:
-        print(f"🔊 Audio request: {len(text)} chars in {language}")
+        print(f"🔊 Audio: {len(text)} chars in {language}")
         
-        # Generate audio
         audio_path = voice_generator.text_to_speech(text, language)
         
         if audio_path and os.path.exists(audio_path):
-            print(f"✅ Sending audio file: {audio_path}")
+            
+            # TRACK VOICE USAGE (NEW!)
+            analytics_tracker.track_voice_usage(
+                report_type="audio",
+                language=language
+            )
             
             return FileResponse(
                 audio_path,
                 media_type="audio/mpeg",
-                filename=f"medical_explanation_{language}.mp3"
+                filename=f"explanation_{language}.mp3"
             )
         else:
-            raise HTTPException(status_code=500, detail="Audio generation failed")
-    
+            raise HTTPException(status_code=500, detail="Audio failed")
+            
     except Exception as e:
-        print(f"❌ Audio endpoint error: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))   
+        print(f"❌ Audio error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ==================== ANALYTICS ENDPOINTS (NEW!) ====================
+
+@app.get("/analytics")
+def get_analytics():
+    """Get usage analytics"""
+    stats = analytics_tracker.get_statistics()
+    return JSONResponse(content=stats, status_code=200)
+
+
+@app.get("/analytics-report")
+def get_analytics_report():
+    """Generate detailed analytics report"""
+    report = analytics_tracker.generate_analytics_report()
+    return JSONResponse(content={"report": report}, status_code=200)
+
+
+# ==================== DATASET MANAGEMENT ====================
 
 @app.get("/dataset-stats")
 def get_dataset_stats():
@@ -381,37 +415,57 @@ def export_dataset_summary():
     return JSONResponse(content={"summary": summary}, status_code=200)
 
 
-@app.get("/about", response_class=HTMLResponse)
-async def about_page():
-    """Serve about page"""
+# ==================== LEGACY/UTILITY ENDPOINTS ====================
+
+@app.post("/analyze-labs")
+def analyze_labs(query: LabQuery):
+    """Analyze lab results (utility endpoint)"""
     
-    # Build path
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    about_path = os.path.join(base_dir, "..", "frontend", "about.html")
+    language = query.language or "English"
     
-    print(f"Looking for about.html at: {about_path}")
-    print(f"Exists: {os.path.exists(about_path)}")
+    print(f"\n🧪 Analyzing {len(query.results)} tests in {language}...")
     
-    try:
-        with open(about_path, 'r', encoding='utf-8') as f:
-            html_content = f.read()
-        return HTMLResponse(content=html_content)
-    except FileNotFoundError:
-        # Fallback: check alternate location
-        alt_path = os.path.join(os.getcwd(), "frontend", "about.html")
-        print(f"Trying alternate: {alt_path}")
-        
-        try:
-            with open(alt_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-            return HTMLResponse(content=html_content)
-        except:
-            return HTMLResponse(
-                f"<h1>File not found</h1>"
-                f"<p>Looking for: {about_path}</p>"
-                f"<p>Current dir: {os.getcwd()}</p>"
-                f"<p>Please ensure about.html is in frontend/ folder</p>"
-            )
+    test_results = [
+        {"test_name": r.test_name, "value": r.value, "unit": ""}
+        for r in query.results
+    ]
+    
+    analyses = ai_lab_analyzer.analyze_full_report(test_results, language=language)
+    
+    return JSONResponse(content={"lab_analysis": analyses}, status_code=200)
+
+
+@app.get("/drug/{drug_name}")
+def get_drug_info(drug_name: str):
+    """Get info for single drug"""
+    drug_info = drug_service.get_drug_info(drug_name)
+    if drug_info["confidence"] == "none":
+        raise HTTPException(status_code=404, detail="Drug not found")
+    return JSONResponse(content=drug_info, status_code=200)
+
+
+@app.get("/database-stats")
+def get_database_stats():
+    """Get drug database statistics"""
+    return JSONResponse(content=drug_service.get_stats(), status_code=200)
+
+
+# ==================== SERVER STARTUP ====================
+
 if __name__ == "__main__":
     import uvicorn
+    
+    print("\n" + "="*70)
+    print(" "*20 + "🏥 MediSimplify")
+    print(" "*10 + "AI-Powered Medical Report Analyzer")
+    print("="*70)
+    print("\n📍 Application:  http://127.0.0.1:8000/")
+    print("📚 API Docs:     http://127.0.0.1:8000/docs")
+    print("ℹ️  About Page:   http://127.0.0.1:8000/about")
+    print("📊 Dataset:      http://127.0.0.1:8000/dataset-stats")
+    print("📈 Analytics:    http://127.0.0.1:8000/analytics")
+    print("\n" + "="*70)
+    print("Created by: Sargam Chicholikar | February 2026")
+    print("="*70 + "\n")
+    
     uvicorn.run(app, host="127.0.0.1", port=8000, timeout_keep_alive=120)
