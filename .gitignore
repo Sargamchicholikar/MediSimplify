@@ -1,101 +1,72 @@
 # ==========================================
-# MediSimplify - GitIgnore File
-# Copyright (c) 2026 Sargam Chicholikar
+# MediSimplify - GitIgnore
 # ==========================================
 
-# === CRITICAL: API Keys & Secrets ===
+# Python cache - NEVER commit!
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+
+# Environment & Secrets
 .env
 *.env
 !.env.example
 *.key
-secrets.json
-backend/.env
 google-credentials.json
 
-# === Python ===
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# === Virtual Environment ===
+# Virtual Environment
 venv/
 env/
 ENV/
-virtualenv/
 
-# === Data & Collections (User Data - Never Commit!) ===
+# Data & Collections
 collected_data/
 backend/data/
 data/
+backend/data/audio/
+*.mp3
+*.wav
 
-# === Analytics & Tracking (Private - Admin Only) ===
+# Analytics & Feedback (Private)
 analytics/
 backend/analytics/
 user_feedback/
 backend/user_feedback/
-
-# === Admin & Reports (Keep Private) ===
 backend/exports/
 exports/
-*.xlsx
-*.xls
 
-# === Private Files (Don't Push to GitHub) ===
+# Private Python Files
 backend/data_collector.py
 backend/analytics_tracker.py
 backend/feedback_collector.py
 backend/excel_exporter.py
+
+# Private Frontend
 frontend/dashboard.html
 
-
-# === Generated Files ===
-*.mp3
-*.wav
-data/audio/
-backend/data/audio/
+# Cache Files
 drug_cache.json
 backend/data/drug_cache.json
 
-# === Test Files (Optional) ===
+# Test Files
 test/
-backend/test/
 
-# === IDEs ===
+# IDEs
 .vscode/
 .idea/
 *.swp
-*.swo
-*~
 
-# === OS Files ===
+# OS
 .DS_Store
 Thumbs.db
 desktop.ini
-*.DS_Store
 
-# === Logs ===
+# Logs
 *.log
-logs/
-*.log.*
 
-# === Temporary Files ===
+# Temp
 *.tmp
-*.temp
 ~*
