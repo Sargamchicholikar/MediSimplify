@@ -3,8 +3,8 @@ MediSimplify - Main JavaScript
 Copyright (c) 2026 Sargam Chicholikar
 */
 
-const API = 'http://127.0.0.1:8000';
-let prescFile = null, labFile = null, xrayFile = null;
+// Auto-detect API URL based on current page
+const API = window.location.origin;let prescFile = null, labFile = null, xrayFile = null;
 let currentAudio = null, audioUpdateInterval = null;
 let selectedRating = 0, usedFeature = 'general';
 
