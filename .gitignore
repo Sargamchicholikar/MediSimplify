@@ -63,7 +63,7 @@ backend/analytics_tracker.py
 backend/feedback_collector.py
 backend/excel_exporter.py
 frontend/dashboard.html
-frontend/about.html
+
 
 # === Generated Files ===
 *.mp3
