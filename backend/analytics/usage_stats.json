@@ -1,27 +1,28 @@
 {
-  "total_analyses": 4,
+  "total_analyses": 5,
   "prescriptions_analyzed": 0,
-  "labs_analyzed": 3,
+  "labs_analyzed": 4,
   "xrays_analyzed": 1,
   "manual_drug_entries": 0,
   "languages": {
-    "English": 3,
+    "English": 4,
     "Gujarati": 1
   },
   "daily_stats": {
     "2026-03-03": 1,
     "2026-03-22": 2,
-    "2026-04-10": 1
+    "2026-04-10": 2
   },
   "hourly_patterns": {
     "17:00": 1,
     "21:00": 2,
-    "00:00": 1
+    "00:00": 1,
+    "02:00": 1
   },
   "feature_usage": {
     "voice_playback": 0,
     "multi_report_analysis": 0
   },
   "started_tracking": "2026-03-03T17:02:08.221348",
-  "last_updated": "2026-04-10T00:58:27.866494"
+  "last_updated": "2026-04-10T02:00:10.447441"
 }

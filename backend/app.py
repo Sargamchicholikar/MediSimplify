@@ -81,12 +81,14 @@ async def serve_frontend():
 
 @app.get("/about", response_class=HTMLResponse)
 async def about_page():
+    """Serve about page"""
     about_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "about.html")
     try:
         with open(about_path, 'r', encoding='utf-8') as f:
             return HTMLResponse(content=f.read())
-    except:
-        return HTMLResponse("<h1>About (Local only)</h1>")
+    except Exception as e:
+        print(f"Error loading about.html: {e}")
+        return HTMLResponse("<h1>About page not found</h1>")
 
 # ==================== DRUG ANALYSIS ====================
 
