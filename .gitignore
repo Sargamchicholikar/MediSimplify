@@ -1,7 +1,6 @@
-
 # ==========================================
 # MediSimplify - GitIgnore File
-# Prevents sensitive data from being committed
+# Copyright (c) 2026 Sargam Chicholikar
 # ==========================================
 
 # === CRITICAL: API Keys & Secrets ===
@@ -10,6 +9,8 @@
 !.env.example
 *.key
 secrets.json
+backend/.env
+google-credentials.json
 
 # === Python ===
 __pycache__/
@@ -39,32 +40,60 @@ env/
 ENV/
 virtualenv/
 
-# === Data & Generated Files ===
-data/audio/*.mp3
-data/drug_cache.json
+# === Data & Collections (User Data - Never Commit!) ===
 collected_data/
-*.mp3
-*.wav
-# === Data Folders (IMPORTANT!) ===
 backend/data/
 data/
-collected_data/
+
+# === Analytics & Tracking (Private - Admin Only) ===
+analytics/
+backend/analytics/
+user_feedback/
+backend/user_feedback/
+
+# === Admin & Reports (Keep Private) ===
+backend/exports/
+exports/
+*.xlsx
+*.xls
+
+# === Private Files (Don't Push to GitHub) ===
+backend/data_collector.py
+backend/analytics_tracker.py
+backend/feedback_collector.py
+backend/excel_exporter.py
+frontend/dashboard.html
+frontend/about.html
+
+# === Generated Files ===
+*.mp3
+*.wav
+data/audio/
+backend/data/audio/
+drug_cache.json
+backend/data/drug_cache.json
+
+# === Test Files (Optional) ===
+test/
+backend/test/
+
 # === IDEs ===
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# === OS Files ===
 .DS_Store
+Thumbs.db
+desktop.ini
+*.DS_Store
 
 # === Logs ===
 *.log
 logs/
-
-# === OS Files ===
-Thumbs.db
-.DS_Store
-desktop.ini
+*.log.*
 
 # === Temporary Files ===
 *.tmp

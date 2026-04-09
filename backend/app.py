@@ -8,9 +8,6 @@ Email: work.sargam@gmail.com
 GitHub: https://github.com/Sargamchicholikar
 LinkedIn: https://linkedin.com/in/sargam-chicholikar
 Created: February 2026
-
-This file is part of the AI Medical Report Simplifier project.
-For full license information, see LICENSE file in project root.
 """
 
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query
@@ -23,7 +20,8 @@ import time
 import os
 
 from data_collector import data_collector
-from analytics_tracker import analytics_tracker  # NEW!
+from analytics_tracker import analytics_tracker
+from feedback_collector import feedback_collector
 from drug_database import DRUG_COMBINATIONS, ABBREVIATIONS
 from drug_service import drug_service
 from lab_database import LAB_TESTS
@@ -32,7 +30,7 @@ from ai_lab_analyzer import ai_lab_analyzer
 from drug_translator import drug_translator
 from advanced_xray_vision import advanced_xray_analyzer
 from voice_generator import voice_generator
-
+from excel_exporter import excel_exporter
 
 app = FastAPI(title="MediSimplify API")
 
@@ -69,59 +67,48 @@ class LabQuery(BaseModel):
 
 
 def validate_drug_sync(drug_name):
-    """Helper function for parallel drug validation"""
     return drug_service.get_drug_info(drug_name)
 
 
-# ==================== FRONTEND ROUTES ====================
+# ==================== FRONTEND ====================
 
 @app.get("/", response_class=FileResponse)
 async def serve_frontend():
-    """Serve main application page"""
+    """Serve main page"""
     index_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "index.html")
-    
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    else:
-        return HTMLResponse("<h1>MediSimplify</h1><p>Frontend not found</p>")
+    return HTMLResponse("<h1>MediSimplify</h1>")
 
 
 @app.get("/about", response_class=HTMLResponse)
 async def about_page():
-    """Serve about page (local only)"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    about_path = os.path.join(base_dir, "..", "frontend", "about.html")
-    
+    """Serve about page"""
+    about_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "about.html")
     try:
         with open(about_path, 'r', encoding='utf-8') as f:
             return HTMLResponse(content=f.read())
-    except FileNotFoundError:
-        return HTMLResponse("<h1>About</h1><p>Available in local version only</p>")
+    except:
+        return HTMLResponse("<h1>About (Local only)</h1>")
 
 
 # ==================== DRUG ANALYSIS ====================
 
 @app.post("/analyze-drugs")
 def analyze_drugs(query: DrugQuery):
-    """Analyze manually entered drugs with tracking"""
-    
+    """Manual drug entry with tracking"""
     language = query.language or "English"
     
-    print(f"\n🚀 Analyzing {len(query.drug_names)} drugs...")
-    print(f"🌐 Language: {language}")
+    print(f"\n🚀 {len(query.drug_names)} drugs in {language}")
     
     drugs_info = []
     validated_drugs = []
     
-    # Parallel validation
     with ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_drug = {
-            executor.submit(validate_drug_sync, drug_name): drug_name 
-            for drug_name in query.drug_names
-        }
+        futures = {executor.submit(validate_drug_sync, d): d for d in query.drug_names}
         
-        for future in future_to_drug:
-            drug_name = future_to_drug[future]
+        for future in futures:
+            drug_name = futures[future]
             try:
                 drug_info = future.result(timeout=40)
                 
@@ -137,16 +124,12 @@ def analyze_drugs(query: DrugQuery):
                 if drug_info["confidence"] != "none":
                     validated_drugs.append(drug_name.lower().strip())
                     print(f"✅ {drug_name}")
-                    
             except Exception as e:
                 print(f"❌ {drug_name}: {e}")
     
-    # Translate if needed
     if language != "English":
-        print(f"🌐 Translating to {language}...")
         drugs_info = drug_translator.translate_multiple_drugs(drugs_info, language)
     
-    # Detect conditions
     detected_conditions = []
     drug_set = frozenset(validated_drugs)
     
@@ -157,140 +140,95 @@ def analyze_drugs(query: DrugQuery):
                 "explanation": info["explanation"]
             })
     
-    # TRACK USAGE (NEW!)
-    analytics_tracker.track_prescription_analysis(
-        language=language,
-        is_upload=False  # Manual typing
-    )
+    # Track
+    analytics_tracker.track_prescription_analysis(language, False)
     
     return JSONResponse(content={
         "drugs": drugs_info,
         "detected_conditions": detected_conditions
-    }, status_code=200)
+    })
 
 
-# ==================== PRESCRIPTION UPLOAD ====================
+# ==================== PRESCRIPTION ====================
 
 @app.post("/upload-prescription")
 async def upload_prescription(file: UploadFile = File(...)):
-    """Upload prescription image with tracking"""
-    
+    """Prescription upload with tracking"""
     if not file.content_type.startswith('image/'):
-        raise HTTPException(status_code=400, detail="Images only")
+        raise HTTPException(400, "Images only")
     
     try:
         contents = await file.read()
         result = ocr_engine.process_prescription(contents)
         
-        # Save to dataset
-        data_collector.save_prescription(
-            image_bytes=contents,
-            extracted_drugs=result["found_drugs"],
-            language="English"
-        )
+        data_collector.save_prescription(contents, result["found_drugs"], "English")
+        analytics_tracker.track_prescription_analysis("English", True)
         
-        # TRACK USAGE (NEW!)
-        analytics_tracker.track_prescription_analysis(
-            language="English",
-            is_upload=True  # Image upload
-        )
-        
-        return JSONResponse(content={
+        return JSONResponse({
             "success": True,
             "found_drugs": result["found_drugs"],
             "drug_count": len(result["found_drugs"])
-        }, status_code=200)
-        
+        })
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(500, str(e))
 
 
-# ==================== LAB REPORT UPLOAD ====================
+# ==================== LAB REPORT ====================
 
 @app.post("/upload-lab-report")
-async def upload_lab_report(
-    file: UploadFile = File(...),
-    language: str = Query("English")
-):
-    """Upload lab report with tracking"""
-    
+async def upload_lab_report(file: UploadFile = File(...), language: str = Query("English")):
+    """Lab upload with tracking"""
     try:
         contents = await file.read()
         is_pdf = file.content_type == "application/pdf"
         
-        print(f"\n📄 Lab: {file.filename} (Lang: {language})")
+        print(f"\n📄 Lab: {file.filename} ({language})")
         
-        # Parse and analyze
         result = lab_parser.process_lab_report(contents, is_pdf)
-        extracted_text = result["extracted_text"]
-        ai_analyses = ai_lab_analyzer.analyze_full_report_text(extracted_text, language=language)
+        ai_analyses = ai_lab_analyzer.analyze_full_report_text(result["extracted_text"], language)
         
-        # Save to dataset
-        data_collector.save_lab_report(
-            file_bytes=contents,
-            filename=file.filename,
-            ai_analysis=ai_analyses,
-            language=language
-        )
+        data_collector.save_lab_report(contents, file.filename, ai_analyses, language)
+        analytics_tracker.track_lab_analysis(language)
         
-        # TRACK USAGE (NEW!)
-        analytics_tracker.track_lab_analysis(language=language)
+        print(f"✅ {len(ai_analyses)} tests\n")
         
-        print(f"✅ Analyzed {len(ai_analyses)} tests\n")
-        
-        return JSONResponse(content={
+        return JSONResponse({
             "success": True,
             "test_count": len(ai_analyses),
             "ai_analysis": ai_analyses
-        }, status_code=200)
-        
+        })
     except Exception as e:
-        print(f"❌ Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ {e}")
+        raise HTTPException(500, str(e))
 
 
-# ==================== X-RAY UPLOAD ====================
+# ==================== X-RAY ====================
 
 @app.post("/upload-xray")
-async def upload_xray(
-    file: UploadFile = File(...),
-    language: str = Query("English")
-):
-    """Upload X-ray with tracking"""
-    
+async def upload_xray(file: UploadFile = File(...), language: str = Query("English")):
+    """X-ray upload with tracking"""
     try:
         contents = await file.read()
         
-        print(f"\n🔬 X-ray: {file.filename} (Lang: {language})")
+        print(f"\n🔬 X-ray: {file.filename} ({language})")
         
-        # AI analysis
         xray_analysis = advanced_xray_analyzer.analyze_xray_detailed(contents, language)
         
-        # Save to dataset
-        data_collector.save_xray(
-            image_bytes=contents,
-            ai_analysis=xray_analysis,
-            language=language
-        )
+        data_collector.save_xray(contents, xray_analysis, language)
+        analytics_tracker.track_xray_analysis(language)
         
-        # TRACK USAGE (NEW!)
-        analytics_tracker.track_xray_analysis(language=language)
+        print(f"✅ X-ray done\n")
         
-        print(f"✅ X-ray analyzed\n")
-        
-        return JSONResponse(content={
+        return JSONResponse({
             "success": True,
             "xray_analysis": xray_analysis
-        }, status_code=200)
-        
+        })
     except Exception as e:
-        print(f"❌ Error: {e}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ {e}")
+        raise HTTPException(500, str(e))
 
 
-# ==================== COMBINED ANALYSIS ====================
+# ==================== COMBINED ====================
 
 @app.post("/analyze-complete")
 async def analyze_complete(
@@ -298,26 +236,22 @@ async def analyze_complete(
     lab_report: UploadFile = File(None),
     language: str = Query("English")
 ):
-    """Complete analysis (no duplicate data saving)"""
-    
-    print(f"\n🌐 Combined analysis in {language}")
+    """Combined analysis"""
+    print(f"\n🌐 Combined ({language})")
     
     drugs_info = []
     lab_analysis = []
     
-    # Prescription
     if prescription:
         pres_contents = await prescription.read()
         pres_result = ocr_engine.process_prescription(pres_contents)
-        drug_candidates = pres_result["found_drugs"]
         
         with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = {executor.submit(validate_drug_sync, d): d for d in drug_candidates}
+            futures = {executor.submit(validate_drug_sync, d): d for d in pres_result["found_drugs"]}
             
             for future in futures:
                 try:
                     drug_info = future.result(timeout=40)
-                    
                     if drug_info["confidence"] != "none":
                         drugs_info.append({
                             "name": drug_info["name"],
@@ -333,124 +267,258 @@ async def analyze_complete(
         if language != "English":
             drugs_info = drug_translator.translate_multiple_drugs(drugs_info, language)
     
-    # Lab report
     if lab_report:
         lab_contents = await lab_report.read()
         is_pdf = lab_report.content_type == "application/pdf"
         
         lab_result = lab_parser.process_lab_report(lab_contents, is_pdf)
-        extracted_text = lab_result["extracted_text"]
-        lab_analysis = ai_lab_analyzer.analyze_full_report_text(extracted_text, language=language)
+        lab_analysis = ai_lab_analyzer.analyze_full_report_text(lab_result["extracted_text"], language)
     
-    detected_conditions = []
-    
-    return JSONResponse(content={
+    return JSONResponse({
         "drugs": drugs_info,
-        "detected_conditions": detected_conditions,
+        "detected_conditions": [],
         "lab_analysis": lab_analysis
-    }, status_code=200)
+    })
 
 
-# ==================== VOICE GENERATION ====================
+# ==================== VOICE ====================
 
 @app.post("/generate-audio")
 async def generate_audio(text: str, language: str = "English"):
-    """Generate audio with tracking"""
-    
+    """Audio generation with tracking"""
     try:
-        print(f"🔊 Audio: {len(text)} chars in {language}")
+        print(f"🔊 Audio ({language})")
         
         audio_path = voice_generator.text_to_speech(text, language)
         
         if audio_path and os.path.exists(audio_path):
-            
-            # TRACK VOICE USAGE (NEW!)
-            analytics_tracker.track_voice_usage(
-                report_type="audio",
-                language=language
-            )
-            
-            return FileResponse(
-                audio_path,
-                media_type="audio/mpeg",
-                filename=f"explanation_{language}.mp3"
-            )
-        else:
-            raise HTTPException(status_code=500, detail="Audio failed")
-            
+            analytics_tracker.track_voice_usage("audio", language)
+            return FileResponse(audio_path, media_type="audio/mpeg", filename=f"audio_{language}.mp3")
+        
+        raise HTTPException(500, "Audio failed")
     except Exception as e:
-        print(f"❌ Audio error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(500, str(e))
 
 
-# ==================== ANALYTICS ENDPOINTS (NEW!) ====================
+# ==================== FEEDBACK ====================
+
+@app.post("/submit-feedback")
+async def submit_feedback(
+    rating: int = Query(..., ge=1, le=5),
+    comments: str = Query(""),
+    feature_used: str = Query("general"),
+    language: str = Query("English"),
+    email: str = Query("anonymous"),
+    feedback_type: str = Query("general")
+):
+    """Submit feedback"""
+    try:
+        feedback_id = feedback_collector.save_feedback({
+            'rating': rating,
+            'comments': comments,
+            'feature_used': feature_used,
+            'language': language,
+            'email': email,
+            'feedback_type': feedback_type
+        })
+        
+        return JSONResponse({
+            'success': True,
+            'message': 'Thank you for your feedback!',
+            'feedback_id': feedback_id
+        })
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+@app.get("/feedback-stats")
+def get_feedback_stats():
+    """Feedback statistics"""
+    return JSONResponse(feedback_collector.get_statistics())
+
+
+@app.get("/all-feedback")
+def get_all_feedback():
+    """All feedback"""
+    return JSONResponse({'feedback': feedback_collector.get_all_feedback()})
+
+
+# ==================== ANALYTICS ====================
 
 @app.get("/analytics")
 def get_analytics():
-    """Get usage analytics"""
-    stats = analytics_tracker.get_statistics()
-    return JSONResponse(content=stats, status_code=200)
+    """Usage analytics"""
+    return JSONResponse(analytics_tracker.get_statistics())
 
 
 @app.get("/analytics-report")
-def get_analytics_report():
-    """Generate detailed analytics report"""
+def analytics_report():
+    """Analytics report"""
     report = analytics_tracker.generate_analytics_report()
-    return JSONResponse(content={"report": report}, status_code=200)
+    return JSONResponse({"report": report})
+
+# ==================== FEEDBACK ENDPOINTS ====================
+
+@app.post("/submit-feedback")
+async def submit_feedback(
+    rating: int = Query(..., ge=1, le=5),
+    comments: str = Query(""),
+    feature_used: str = Query("general"),
+    language: str = Query("English"),
+    email: str = Query("anonymous"),
+    feedback_type: str = Query("general")
+):
+    """Submit user feedback"""
+    try:
+        feedback_id = feedback_collector.save_feedback({
+            'rating': rating,
+            'comments': comments,
+            'feature_used': feature_used,
+            'language': language,
+            'email': email,
+            'feedback_type': feedback_type
+        })
+        
+        return JSONResponse({
+            'success': True,
+            'message': 'Thank you!',
+            'feedback_id': feedback_id
+        })
+    except Exception as e:
+        raise HTTPException(500, str(e))
 
 
-# ==================== DATASET MANAGEMENT ====================
+@app.get("/feedback-stats")
+def get_feedback_stats():
+    """Feedback statistics"""
+    return JSONResponse(feedback_collector.get_statistics())
+
+
+# ==================== ANALYTICS ENDPOINTS ====================
+
+@app.get("/analytics")
+def get_analytics():
+    """Usage analytics"""
+    return JSONResponse(analytics_tracker.get_statistics())
+
+
+# ==================== ADMIN ROUTES (PASSWORD PROTECTED) ====================
+
+ADMIN_PASSWORD = "sargam2026"  # Change this!
+
+@app.get("/admin/dashboard", response_class=FileResponse)
+async def admin_dashboard(password: str = Query(None)):
+    """Admin dashboard"""
+    
+    if password != ADMIN_PASSWORD:
+        return HTMLResponse("""
+            <html>
+            <body style="font-family: Arial; text-align: center; padding: 100px; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0;">
+                <div style="background: white; padding: 40px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <h1 style="margin-bottom: 20px;">🔒 Admin Access</h1>
+                    <form method="get">
+                        <input type="password" name="password" placeholder="Password" 
+                               style="padding: 12px 20px; font-size: 1rem; border: 2px solid #4f46e5; border-radius: 8px; margin-right: 10px;">
+                        <button type="submit" style="padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">
+                            Access
+                        </button>
+                    </form>
+                </div>
+            </body>
+            </html>
+        """)
+    
+    dashboard_path = os.path.join(os.path.dirname(__file__), "..", "frontend", "dashboard.html")
+    if os.path.exists(dashboard_path):
+        return FileResponse(dashboard_path)
+    return HTMLResponse("<h1>Not found</h1>")
+
+
+@app.get("/admin/export-excel")
+async def admin_export_excel(password: str = Query(...)):
+    """Export to Excel (admin only)"""
+    
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(403, "Access denied")
+    
+    filepath = excel_exporter.export_combined()
+    
+    if filepath and os.path.exists(filepath):
+        return FileResponse(
+            filepath,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=os.path.basename(filepath)
+        )
+    raise HTTPException(500, "Export failed")
+
+
+@app.get("/admin/analytics-data")
+async def admin_analytics_data(password: str = Query(...)):
+    """Analytics data (admin only)"""
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(403, "Denied")
+    return JSONResponse(analytics_tracker.get_statistics())
+
+
+@app.get("/admin/feedback-data")
+async def admin_feedback_data(password: str = Query(...)):
+    """Feedback data (admin only)"""
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(403, "Denied")
+    return JSONResponse({
+        'stats': feedback_collector.get_statistics(),
+        'all_feedback': feedback_collector.get_all_feedback()
+    })
+
+
+@app.get("/admin/dataset-data")
+async def admin_dataset_data(password: str = Query(...)):
+    """Dataset data (admin only)"""
+    if password != ADMIN_PASSWORD:
+        raise HTTPException(403, "Denied")
+    return JSONResponse(data_collector.get_statistics())
+
+# ==================== DATASET ====================
 
 @app.get("/dataset-stats")
-def get_dataset_stats():
-    """Get collected dataset statistics"""
-    stats = data_collector.get_statistics()
-    return JSONResponse(content=stats, status_code=200)
+def dataset_stats():
+    """Dataset statistics"""
+    return JSONResponse(data_collector.get_statistics())
 
 
 @app.get("/export-dataset-summary")
-def export_dataset_summary():
-    """Generate dataset summary report"""
-    summary = data_collector.export_dataset_summary()
-    return JSONResponse(content={"summary": summary}, status_code=200)
+def dataset_summary():
+    """Dataset summary"""
+    return JSONResponse({"summary": data_collector.export_dataset_summary()})
 
 
-# ==================== LEGACY/UTILITY ENDPOINTS ====================
+# ==================== UTILITY ====================
 
 @app.post("/analyze-labs")
 def analyze_labs(query: LabQuery):
-    """Analyze lab results (utility endpoint)"""
-    
+    """Lab utility"""
     language = query.language or "English"
-    
-    print(f"\n🧪 Analyzing {len(query.results)} tests in {language}...")
-    
-    test_results = [
-        {"test_name": r.test_name, "value": r.value, "unit": ""}
-        for r in query.results
-    ]
-    
-    analyses = ai_lab_analyzer.analyze_full_report(test_results, language=language)
-    
-    return JSONResponse(content={"lab_analysis": analyses}, status_code=200)
+    test_results = [{"test_name": r.test_name, "value": r.value, "unit": ""} for r in query.results]
+    analyses = ai_lab_analyzer.analyze_full_report(test_results, language)
+    return JSONResponse({"lab_analysis": analyses})
 
 
 @app.get("/drug/{drug_name}")
 def get_drug_info(drug_name: str):
-    """Get info for single drug"""
+    """Single drug info"""
     drug_info = drug_service.get_drug_info(drug_name)
     if drug_info["confidence"] == "none":
-        raise HTTPException(status_code=404, detail="Drug not found")
-    return JSONResponse(content=drug_info, status_code=200)
+        raise HTTPException(404, "Not found")
+    return JSONResponse(drug_info)
 
 
 @app.get("/database-stats")
-def get_database_stats():
-    """Get drug database statistics"""
-    return JSONResponse(content=drug_service.get_stats(), status_code=200)
+def database_stats():
+    """Drug database stats"""
+    return JSONResponse(drug_service.get_stats())
 
 
-# ==================== SERVER STARTUP ====================
+# ==================== STARTUP ====================
 
 if __name__ == "__main__":
     import uvicorn
@@ -459,13 +527,12 @@ if __name__ == "__main__":
     print(" "*20 + "🏥 MediSimplify")
     print(" "*10 + "AI-Powered Medical Report Analyzer")
     print("="*70)
-    print("\n📍 Application:  http://127.0.0.1:8000/")
-    print("📚 API Docs:     http://127.0.0.1:8000/docs")
-    print("ℹ️  About Page:   http://127.0.0.1:8000/about")
-    print("📊 Dataset:      http://127.0.0.1:8000/dataset-stats")
-    print("📈 Analytics:    http://127.0.0.1:8000/analytics")
+    print("\n📍 App:       http://127.0.0.1:8000/")
+    print("📚 Docs:      http://127.0.0.1:8000/docs")
+    print("📊 Analytics: http://127.0.0.1:8000/analytics")
+    print("💬 Feedback:  http://127.0.0.1:8000/feedback-stats")
     print("\n" + "="*70)
-    print("Created by: Sargam Chicholikar | February 2026")
+    print("By: Sargam Chicholikar | Feb 2026 | MIT License")
     print("="*70 + "\n")
     
     uvicorn.run(app, host="127.0.0.1", port=8000, timeout_keep_alive=120)
