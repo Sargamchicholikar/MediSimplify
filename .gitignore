@@ -38,14 +38,6 @@ backend/user_feedback/
 backend/exports/
 exports/
 
-# Private Python Files
-backend/data_collector.py
-backend/analytics_tracker.py
-backend/feedback_collector.py
-backend/excel_exporter.py
-
-# Private Frontend
-frontend/dashboard.html
 
 # Cache Files
 drug_cache.json
