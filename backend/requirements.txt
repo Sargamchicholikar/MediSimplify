@@ -1,33 +1,17 @@
-# Web Framework
-fastapi==0.109.0
-uvicorn==0.27.0
-python-multipart==0.0.9
-pydantic==2.5.3
-
-# HTTP & API
-requests>=2.32.2
-
-# Environment Variables
-python-dotenv==1.0.0
-
-# Computer Vision & OCR
-easyocr==1.7.0
-opencv-python-headless==4.9.0.80
-pillow==10.2.0
-
-# PDF Processing
-pypdf2==3.0.1
-
-# NLP & Text Matching
-fuzzywuzzy==0.18.0
-python-Levenshtein==0.23.0
-
-# Text-to-Speech
-gtts==2.5.0
-
-# AI Models
-google-generativeai==0.3.2
-groq==0.4.1
-
-# Excel Export
-openpyxl==3.1.2
+fastapi
+uvicorn[standard]
+gunicorn
+python-multipart
+pydantic
+requests
+python-dotenv
+easyocr
+opencv-python-headless
+pillow
+pypdf2
+fuzzywuzzy
+python-Levenshtein
+gtts
+google-generativeai
+groq
+openpyxl
