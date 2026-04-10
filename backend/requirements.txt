@@ -13,7 +13,7 @@ python-dotenv==1.0.0
 # Computer Vision & OCR
 easyocr==1.7.0
 opencv-python-headless==4.9.0.80
-pillow==10.2.0
+pillow>=10.4.0
 
 # PDF Processing
 pypdf2==3.0.1
