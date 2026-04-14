@@ -12,19 +12,39 @@
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/styles.css",
+      "dest": "frontend/styles.css"
+    },
+    {
+      "src": "/script.js",
+      "dest": "frontend/script.js"
+    },
+    {
+      "src": "/about",
       "dest": "backend/index.py"
     },
     {
-      "src": "/(.*)",
-      "dest": "frontend/$1"
+      "src": "/analyze-(.*)",
+      "dest": "backend/index.py"
     },
     {
-      "handle": "filesystem"
+      "src": "/upload-(.*)",
+      "dest": "backend/index.py"
     },
     {
-      "src": "/(.*)",
-      "status": 404,
+      "src": "/generate-audio",
+      "dest": "backend/index.py"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "backend/index.py"
+    },
+    {
+      "src": "/analytics",
+      "dest": "backend/index.py"
+    },
+    {
+      "src": "/",
       "dest": "frontend/index.html"
     }
   ]
