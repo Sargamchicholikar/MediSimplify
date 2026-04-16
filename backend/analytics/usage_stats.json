@@ -1,0 +1,22 @@
+{
+  "total_analyses": 2,
+  "prescriptions_analyzed": 0,
+  "labs_analyzed": 1,
+  "xrays_analyzed": 1,
+  "manual_drug_entries": 0,
+  "languages": {
+    "English": 2
+  },
+  "daily_stats": {
+    "2026-04-16": 2
+  },
+  "hourly_patterns": {
+    "10:00": 2
+  },
+  "feature_usage": {
+    "voice_playback": 0,
+    "multi_report_analysis": 0
+  },
+  "started_tracking": "2026-04-15T23:53:58.637471",
+  "last_updated": "2026-04-16T10:10:02.111857"
+}
